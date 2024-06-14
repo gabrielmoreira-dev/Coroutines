@@ -7,8 +7,10 @@ import br.edu.ifsp.scl.pdm.pa2.coroutines.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.random.Random
 
 class MainActivity : AppCompatActivity() {
@@ -21,32 +23,37 @@ class MainActivity : AppCompatActivity() {
         amb.launchCoroutinesBt.setOnClickListener {
             val random = Random(System.currentTimeMillis())
             val SLEEP_LIMIT = 3000L
-            var upperText = "Upper before sleep"
-            var lowerText = "Lower before sleep"
 
-            GlobalScope.launch(Dispatchers.Main) {
-                upperText = sleep("Upper", random.nextLong(SLEEP_LIMIT))
+            GlobalScope.launch(Dispatchers.Default) {
                 Log.v(
                     getString(R.string.app_name),
-                    "Coroutine thread: ${Thread.currentThread().name}, Job: ${coroutineContext[Job]}"
+                    "Top coroutine thread: ${Thread.currentThread().name}"
                 )
-                amb.upperTv.text = upperText
-            }
-            GlobalScope.launch(Dispatchers.Unconfined) {
-                lowerText = sleep("Lower", random.nextLong(SLEEP_LIMIT))
-                Log.v(
-                    getString(R.string.app_name),
-                    "Coroutine thread: ${Thread.currentThread().name}, Job: ${coroutineContext[Job]}"
-                )
-                runOnUiThread {
-                    amb.lowerTv.text = lowerText
+
+                val upper = sleep("Upper", random.nextLong(SLEEP_LIMIT))
+                withContext(Dispatchers.Main + Job()) {
+                    Log.v(
+                        getString(R.string.app_name),
+                        "Executing in thread: ${Thread.currentThread().name}, Job: ${coroutineContext[Job]}"
+                    )
+                    amb.upperTv.text = upper
                 }
-            }
 
-            Log.v(
-                getString(R.string.app_name),
-                "Coroutine thread: ${Thread.currentThread().name}"
-            )
+                launch(Dispatchers.IO) {
+                    Log.v(
+                        getString(R.string.app_name),
+                        "Lower coroutine thread: ${Thread.currentThread().name}, Job: ${coroutineContext[Job]}"
+                    )
+                    sleep("Lower", random.nextLong(SLEEP_LIMIT)).let {
+                        runOnUiThread {
+                            amb.lowerTv.text = it
+                        }
+                    }
+                    Log.v(getString(R.string.app_name), "Lower coroutine done")
+                }
+
+                Log.v(getString(R.string.app_name), "Top coroutine done")
+            }
         }
     }
 
